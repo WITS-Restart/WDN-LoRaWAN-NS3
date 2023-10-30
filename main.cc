@@ -236,9 +236,6 @@ main (int argc, char *argv[])
     nDevices_list.push_back(nDevices); //use a specified value of nDevice
   }
 
-  std::cout << "DOMENIC  3 ---------------------\n";
-
-
 
   if (custom_node_position){
     //nDevices_list = {80,60,40,20};
@@ -276,8 +273,6 @@ main (int argc, char *argv[])
     file.close();
 
    }
-
-  std::cout << "DOMENIC  4 ---------------------\n";
 
   if (enable_gw_position){
         // OPEN NODE POSITION FILE
@@ -392,7 +387,6 @@ main (int argc, char *argv[])
         mobility->SetPosition (position);
       }
 
-  std::cout << "DOMENIC  5 ---------------------\n";
 
       // SET CUSTOM NODE POSITION
       if (custom_node_position){
@@ -466,7 +460,7 @@ main (int argc, char *argv[])
       //  mobility.SetPositionAllocator (allocator);
       mobility.Install (gateways);
 
-        std::cout << "DOMENIC  6 ---------------------\n";
+
 
       int index = 1;
       
@@ -767,7 +761,6 @@ main (int argc, char *argv[])
         }
       }
 
-     std::cout << "DOMENICO ----------------------------------" << std::endl;
 
       // install device model
       DeviceEnergyModelContainer deviceModels = radioEnergyHelper.Install

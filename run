@@ -1,0 +1,121 @@
+#! /bin/bash
+appPeriodSeconds=$((5*60)) #seconds
+simulationTime=$((24*60*60)) #seconds
+#export 'NS_LOG=LoraChannel=level_all|prefix_func'
+
+RUN_WAF="../../waf"
+
+MAXJOBS=4 #4 because I run 4 scripts tototal max jobs is equal to CPUS=8
+
+NDEV_min=1
+NDEV_max=85
+NDEV_step=1
+
+#Check and compile any changes in NS3 scripts/modules
+$RUN_WAF
+
+
+
+
+proj_dir=${PWD##*/} 
+
+#START TIMING
+SECONDS=0
+GW_min=2
+GW_max=2
+
+#ranking=("betweeness" "closeness" "pagerank" "random")
+ranking=("random")
+
+trap ctrl_c INT
+
+function ctrl_c() {   
+   #set -x
+   kill -9 $(ps aux | grep "../../waf --run $proj_dir" | awk '{print $2 }') #>/dev/null 2>&1
+   kill -9 $(ps aux | grep "scratch/$proj_dir/$proj_dir" | awk '{print $2 }') #>/dev/null 2>&1
+   #set +x 
+   echo "STOPPED"
+   exit
+}
+
+#mkdir "scratch/$proj_dir/T"$appPeriodSeconds"seconds/"
+mkdir "T"$appPeriodSeconds"sec/"
+
+#Extract ADR allocation (ONLY LogDistance Propagation)
+#extract_adr
+mkdir SF_allocation/
+
+#for (( gw=$GW_min; gw<=$GW_max; gw++ )); do
+#   $RUN_WAF --run "$proj_dir --extract_adr=true --nGateways=$gw --realisticChannelModel=false --appPeriodSeconds=0 --simulationTime=0 --RngRun=1 --RngSeed=1 --runId=0 --nDevices=85 --output_dir=scratch/$proj_dir/SF_allocation/ --nodes=betweeness "
+#   #$RUN_WAF --run "$proj_dir --extract_adr=true --nGateways=$gw --realisticChannelModel=false --appPeriodSeconds=0 --simulationTime=0 --RngRun=1 --RngSeed=1 --runId=0 --nDevices=85 --output_dir=scratch/$proj_dir/SF_allocation/ --nodes=closeness"
+#
+#done
+#
+#$RUN_WAF --run "$proj_dir --nGateways=2 --realisticChannelModel=false --appPeriodSeconds=0 --simulationTime=0 --RngRun=1 --RngSeed=1 --runId=0 --nDevices=85 --output_dir=scratch/$proj_dir/SF-TEST --nodes=betweeness --adr_conf=SF_allocation/ADR-GW-2.csv"
+
+for rr in "${ranking[@]}"; do
+   output_dir="scratch/$proj_dir/T"$appPeriodSeconds"sec/experiment_output_2023-10-21-$rr"
+   nodes="ranking_links_$rr-NS3.csv"
+   echo $output_dir
+   echo $nodes
+
+
+   for (( c=1; c<=1; c++ )) #multiple run... with different random seeds...
+   do
+      for (( gw=$GW_min; gw<=$GW_max; gw++ ))
+      do
+         for (( ndev=$NDEV_min; ndev<=$NDEV_max; ndev=$(( $ndev + $NDEV_step )) )) #ndev
+         do
+            #rnd=$RANDOM;
+            #rnd=8486;
+            rnd=1 
+            echo "NDEV: " $ndev "rnd: " $rnd
+            #
+
+            J=$(jobs | wc -l);
+            until [ $J -lt $MAXJOBS ]; do
+               #echo "$J jobs running... waiting 5s ";
+               duration=$SECONDS
+               TZ=UTC0 printf '%(%H:%M:%S)T [CTRL-C to stop]\n' $duration
+               sleep 1;
+               J=$(jobs | wc -l);
+            done
+
+            
+            set -x #debug
+            
+            $RUN_WAF --run "$proj_dir --nGateways=$gw --realisticChannelModel=true --appPeriodSeconds=$appPeriodSeconds --simulationTime=$simulationTime --RngRun=$rnd --RngSeed=$rnd --runId=$c --nDevices=$ndev --output_dir=$output_dir --nodes=$rr --adr_conf=SF_allocation/ADR-GW-$gw.csv"
+            #$RUN_WAF --run "$proj_dir --nGateways=$gw --realisticChannelModel=true --appPeriodSeconds=$appPeriodSeconds --simulationTime=$simulationTime --RngRun=$rnd --RngSeed=$rnd --runId=$c --nDevices=$ndev --output_dir=$output_dir --adr=0 --nodes=$rr"
+            #$RUN_WAF --run "$proj_dir --nGateways=$gw --realisticChannelModel=false --appPeriodSeconds=$appPeriodSeconds --simulationTime=$simulationTime --RngRun=$rnd --RngSeed=$rnd --runId=$c --nDevices=$ndev --output_dir=$output_dir --nodes=$rr --adr_conf=SF_allocation/ADR-GW-$gw.csv" &
+            #$RUN_WAF --run "$proj_dir --nGateways=$gw --realisticChannelModel=false --appPeriodSeconds=$appPeriodSeconds --simulationTime=$simulationTime --RngRun=$rnd --RngSeed=$rnd --runId=$c --nDevices=$ndev --output_dir=$output_dir --adr=0 --nodes=$rr" &
+
+            set +x #debug
+
+            #Debug gdb mode...
+            #$RUN_WAF --run $proj_dir --command-template="gdb --args %s --nGateways=$gw --realisticChannelModel=true --appPeriodSeconds=$appPeriodSeconds --simulationTime=$simulationTime --RngRun=$rnd --runId=$c"
+         done #ndev
+      done #gw
+   done #c
+
+done
+
+while [ 1 ]; do
+
+   running_proc=$(ps aux | grep "../../waf --run $proj_dir" | awk '{print $2 }')
+
+   tokens=( $running_proc )
+   #echo ${tokens[*]}
+   len_proc=${#tokens[@]}
+   #echo $len_proc
+   if [ "$len_proc" -le 1 ]; then
+
+      duration=$SECONDS
+      TZ=UTC0 printf 'EXPERIMENTS FINISHED AFTER %(%H:%M:%S)T\n' $duration
+
+      exit
+   fi
+   sleep 1
+   duration=$SECONDS
+   TZ=UTC0 printf '%(%H:%M:%S)T [CTRL-C to stop]\n' $duration
+
+done

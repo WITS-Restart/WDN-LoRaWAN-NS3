@@ -1,0 +1,11 @@
+#!/bin/bash
+#kill -9 $(ps aux | grep "der-energy/der-energy" | awk '{print $2 }')
+proj_dir=${PWD##*/}
+set -x
+kill -9 $(ps aux | grep "../../waf --run $proj_dir" | awk '{print $2 }')
+kill -9 $(ps aux | grep "scratch/$proj_dir/$proj_dir" | awk '{print $2 }')
+set +x 
+
+
+
+
